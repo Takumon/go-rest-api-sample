@@ -6,15 +6,23 @@ import (
 	"./../common"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
+	uuid "github.com/satori/go.uuid"
 )
 
-type Unit uint8
-
 type Person struct {
-	gorm.Model
-	CityName  string `form:"city_name" json:"city_name" gorm:"column:city_name;type:varchar(200);"`
-	FirstName string `form:"first_name" json:"first_name" binding:"required" gorm:"column:first_name;not null;type:varchar(100);"`
-	LastName  string `form:"last_name" json:"last_name" binding:"required" gorm:"column:last_name;not null;type:varchar(100);"`
+	ID        uuid.UUID `json:"id" gorm:"type:uuid;primary_key;"`
+	CityName  string    `form:"city_name" json:"city_name" gorm:"column:city_name;type:varchar(200);"`
+	FirstName string    `form:"first_name" json:"first_name" binding:"required" gorm:"column:first_name;not null;type:varchar(100);"`
+	LastName  string    `form:"last_name" json:"last_name" binding:"required" gorm:"column:last_name;not null;type:varchar(100);"`
+}
+
+// BeforeCreate will set a UUID rather than numeric ID.
+func (person *Person) BeforeCreate(scope *gorm.Scope) error {
+	uuid, err := uuid.NewV4()
+	if err != nil {
+		return err
+	}
+	return scope.SetColumn("ID", uuid)
 }
 
 func CreatePersonModel(person Person) (Person, *common.CommonError) {
@@ -127,9 +135,9 @@ func DeletePersonModel(id string) *common.CommonError {
 			Code:    http.StatusInternalServerError,
 		}
 	}
-
-	var person Person
-	if err := tx.Where("id = ?", id).Delete(&person).Error; err != nil {
+	i, _ := uuid.FromString(id)
+	person := Person{ID: i}
+	if err := tx.Delete(&person).Error; err != nil {
 		tx.Rollback()
 		return &common.CommonError{
 			Error:   err,
