@@ -1,0 +1,1 @@
+# Go rest aip sample
